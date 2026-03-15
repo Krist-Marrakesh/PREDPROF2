@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Alien Signal Classifier{% endblock %}</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+  {% block head %}{% endblock %}
+</head>
+<body>
+
+{% if current_user is defined and current_user %}
+<nav>
+  <div class="nav-brand">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/>
+    </svg>
+    AlienSig
+  </div>
+
+  <div class="nav-links">
+    {% if current_user.role == 'admin' %}
+    <a href="/admin" class="nav-link {% if request.url.path == '/admin' %}active{% endif %}">Администрирование</a>
+    {% endif %}
+    <a href="/dashboard" class="nav-link {% if request.url.path == '/dashboard' %}active{% endif %}">Дашборд</a>
+    <a href="/analytics" class="nav-link {% if request.url.path == '/analytics' %}active{% endif %}">Аналитика</a>
+  </div>
+
+  <div class="nav-user">
+    <div class="nav-avatar">{{ current_user.first_name[0] }}{{ current_user.last_name[0] }}</div>
+    <span class="nav-username">{{ current_user.first_name }} {{ current_user.last_name }}</span>
+    <a href="/logout" class="btn-logout">Выйти</a>
+  </div>
+</nav>
+{% endif %}
+
+<div class="{% block wrapper_class %}container{% endblock %}">
+  {% block content %}{% endblock %}
+</div>
+
+{% block scripts %}{% endblock %}
+</body>
+</html>

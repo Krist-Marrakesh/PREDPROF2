@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Аналитика — AlienSig{% endblock %}
+
+{% block head %}
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title">Аналитика</div>
+  <div class="page-subtitle">Метрики обучения и распределение классов</div>
+</div>
+
+<!-- HIDDEN PLACEHOLDER -->
+<div id="charts-placeholder" style="display:none;text-align:center;padding:80px;color:var(--text-muted);">
+  <div style="font-size:48px;margin-bottom:16px;">📊</div>
+  <div style="font-size:16px;font-weight:500;">Данные недоступны</div>
+  <div style="font-size:13px;margin-top:8px;">Запустите обучение: <code>python ml/train.py</code></div>
+</div>
+
+<div id="charts-content" style="display:none;">
+
+  <!-- ACCURACY STAT -->
+  <div class="grid grid-4" style="margin-bottom:24px;">
+    <div class="stat-card">
+      <div class="stat-label">Лучший Val Accuracy</div>
+      <div class="stat-value stat-success" id="best-acc">—</div>
+    </div>
+  </div>
+
+  <!-- TRAINING CURVES -->
+  <div class="grid grid-2" style="margin-bottom:20px;">
+    <div class="chart-container">
+      <div class="chart-title">Accuracy по эпохам</div>
+      <div id="chart-accuracy" style="height:300px;"></div>
+    </div>
+    <div class="chart-container">
+      <div class="chart-title">Loss по эпохам</div>
+      <div id="chart-loss" style="height:300px;"></div>
+    </div>
+  </div>
+
+  <!-- CLASS DISTRIBUTION -->
+  <div class="grid grid-2" style="margin-bottom:20px;">
+    <div class="chart-container">
+      <div class="chart-title">Записей по классу (train)</div>
+      <div id="chart-classes" style="height:420px;"></div>
+    </div>
+    <div class="chart-container">
+      <div class="chart-title">Top-5 классов (valid)</div>
+      <div id="chart-top5" style="height:420px;"></div>
+    </div>
+  </div>
+
+  <!-- PREDICTIONS (shown after upload) -->
+  <div id="pred-section" style="display:none;margin-bottom:20px;">
+    <div class="chart-container">
+      <div class="chart-title">Confidence по записям тестового набора</div>
+      <div id="chart-predictions" style="height:320px;"></div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/charts.js"></script>
+{% endblock %}

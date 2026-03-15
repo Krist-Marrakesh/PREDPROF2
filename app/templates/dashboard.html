@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% block title %}Дашборд — AlienSig{% endblock %}
+
+{% block content %}
+
+<!-- PROFILE HEADER -->
+<div class="profile-header">
+  <div class="profile-avatar">{{ current_user.first_name[0] }}{{ current_user.last_name[0] }}</div>
+  <div>
+    <div class="profile-name">{{ current_user.first_name }} {{ current_user.last_name }}</div>
+    <div class="profile-meta">
+      @{{ current_user.username }} &nbsp;·&nbsp;
+      <span class="badge badge-{{ current_user.role }}">{{ current_user.role }}</span>
+      &nbsp;·&nbsp; с {{ current_user.created_at.strftime('%d.%m.%Y') }}
+    </div>
+  </div>
+  <div style="margin-left:auto;">
+    <div class="model-status">
+      <div class="status-dot {% if model_info.ready %}ready{% else %}pending{% endif %}"></div>
+      {% if model_info.ready %}
+        Модель готова
+        {% if model_info.best_val_acc %}
+          &nbsp;·&nbsp; <span style="color:var(--success);font-weight:600;">
+            {{ "%.1f"|format(model_info.best_val_acc * 100) }}% val acc
+          </span>
+        {% endif %}
+      {% else %}
+        Модель не обучена
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- STATS ROW -->
+<div class="grid grid-4" style="margin-bottom:24px;">
+  <div class="stat-card">
+    <div class="stat-label">Классов</div>
+    <div class="stat-value stat-accent">{{ model_info.num_classes if model_info.ready else '—' }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Val Accuracy</div>
+    <div class="stat-value stat-success">
+      {% if model_info.ready and model_info.best_val_acc %}
+        {{ "%.1f"|format(model_info.best_val_acc * 100) }}%
+      {% else %}—{% endif %}
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Эпох обучения</div>
+    <div class="stat-value">{{ model_info.params.epochs if model_info.ready and model_info.params else '—' }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">n_mels</div>
+    <div class="stat-value">{{ model_info.params.n_mels if model_info.ready and model_info.params else '—' }}</div>
+  </div>
+</div>
+
+<div class="grid grid-2" style="align-items: start;">
+
+  <!-- UPLOAD -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">Загрузка тестового набора</div>
+    </div>
+
+    {% if error %}
+    <div class="alert alert-error">{{ error }}</div>
+    {% endif %}
+
+    <form method="post" action="/upload" enctype="multipart/form-data">
+      <div class="upload-zone" id="upload-zone">
+        <input type="file" name="file" accept=".npy,.npz" id="file-input" onchange="updateLabel(this)">
+        <div class="upload-icon">📡</div>
+        <div class="upload-text" id="upload-label">Выберите .npy или .npz файл</div>
+        <div class="upload-hint">Перетащите или нажмите для выбора</div>
+      </div>
+      <button type="submit" class="btn btn-primary" style="margin-top:16px;">
+        Запустить классификацию
+      </button>
+    </form>
+  </div>
+
+  <!-- RESULTS -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">Результаты классификации</div>
+      {% if predictions %}
+      <span style="font-size:12px;color:var(--text-muted);">{{ predictions|length }} записей</span>
+      {% endif %}
+    </div>
+
+    {% if not predictions %}
+    <div style="text-align:center;padding:40px 0;color:var(--text-muted);">
+      <div style="font-size:32px;margin-bottom:8px;">🔭</div>
+      Загрузите файл для классификации
+    </div>
+    {% else %}
+    <div class="table-wrap" style="max-height:400px;overflow-y:auto;">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Планета</th>
+            <th>Confidence</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in predictions %}
+          <tr>
+            <td style="color:var(--text-muted);">{{ p.index }}</td>
+            <td style="font-weight:500;">{{ p.predicted_class }}</td>
+            <td>
+              <div style="font-size:12px;font-weight:600;color:var(--accent);">
+                {{ "%.1f"|format(p.confidence * 100) }}%
+              </div>
+              <div class="confidence-bar" style="width:80px;">
+                <div class="confidence-fill" style="width:{{ "%.0f"|format(p.confidence * 100) }}%;"></div>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function updateLabel(input) {
+  const label = document.getElementById('upload-label');
+  label.textContent = input.files[0] ? input.files[0].name : 'Выберите .npy или .npz файл';
+}
+</script>
+{% endblock %}
