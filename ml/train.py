@@ -15,6 +15,10 @@ from optuna.pruners import MedianPruner
 from optuna.samplers import TPESampler
 optuna.logging.set_verbosity(optuna.logging.WARNING)
 
+import re
+import hashlib
+from collections import Counter
+
 from ml.preprocess import audio_to_mel, extract_label, save_label_map
 from ml.model import build_model
 
@@ -39,14 +43,94 @@ raw_train_y = data["train_y"]
 raw_valid_y = data["valid_y"]
 print(f"Train: {train_x.shape}, Valid: {valid_x.shape}")
 
-all_labels_raw = np.concatenate([raw_train_y, raw_valid_y])
-unique_planets = sorted(set(extract_label(l) for l in all_labels_raw))
-label_map = {name: idx for idx, name in enumerate(unique_planets)}
+
+def get_hex(label):
+    m = re.match(r'^([0-9a-f]{32})', label)
+    return m.group(1) if m else None
+
+
+def restore_labels(raw_labels, n_signals):
+    """Восстанавливает правильное соответствие меток сигналам.
+
+    Метки перемешаны практикантами. hex = MD5(within_class_idx + planet).
+    Сигналы хранятся блоками по классам (по убыванию кол-ва в классе).
+    within_class_idx указывает позицию внутри блока.
+    """
+    planets = sorted(set(extract_label(l) for l in raw_labels))
+    class_counts = Counter(extract_label(l) for l in raw_labels)
+
+    hash_lookup = {}
+    for planet in planets:
+        for i in range(n_signals):
+            h = hashlib.md5(f"{i}{planet}".encode()).hexdigest()
+            hash_lookup[h] = (i, planet)
+
+    class_order = []
+    remaining = list(planets)
+    offset = 0
+    for _ in range(len(planets)):
+        best_planet, best_matches = None, -1
+        for planet in remaining:
+            cnt = class_counts[planet]
+            matches = sum(
+                1 for l in raw_labels
+                if extract_label(l) == planet
+                and get_hex(l) in hash_lookup
+                and hash_lookup[get_hex(l)][0] < cnt
+            )
+            if matches > best_matches:
+                best_matches = matches
+                best_planet = planet
+        class_order.append(best_planet)
+        remaining.remove(best_planet)
+        offset += class_counts[best_planet]
+
+    label_map = {name: idx for idx, name in enumerate(sorted(set(planets)))}
+
+    offsets = {}
+    pos = 0
+    for planet in class_order:
+        offsets[planet] = pos
+        pos += class_counts[planet]
+
+    confident = {}
+    for label in raw_labels:
+        hex_val = get_hex(label)
+        if hex_val not in hash_lookup:
+            continue
+        within_idx, planet = hash_lookup[hex_val]
+        signal_pos = offsets[planet] + within_idx
+        if signal_pos < n_signals:
+            if signal_pos not in confident:
+                confident[signal_pos] = label_map[planet]
+            elif confident[signal_pos] != label_map[planet]:
+                del confident[signal_pos]
+
+    labels = np.full(n_signals, -1, dtype=np.int64)
+    for pos, cls in confident.items():
+        labels[pos] = cls
+
+    pos = 0
+    for planet in class_order:
+        cnt = class_counts[planet]
+        cls = label_map[planet]
+        for j in range(cnt):
+            if labels[pos + j] == -1:
+                labels[pos + j] = cls
+        pos += cnt
+
+    return labels, label_map, class_order
+
+
+print("Restoring label alignment...")
+train_y, label_map, train_class_order = restore_labels(raw_train_y, len(train_x))
+valid_y, _, valid_class_order = restore_labels(raw_valid_y, len(valid_x))
 save_label_map(label_map)
 print(f"Classes: {len(label_map)}")
-
-train_y = np.array([label_map[extract_label(l)] for l in raw_train_y], dtype=np.int64)
-valid_y = np.array([label_map[extract_label(l)] for l in raw_valid_y], dtype=np.int64)
+print(f"Train class order: {train_class_order}")
+confident_train = (train_y >= 0).sum()
+confident_valid = (valid_y >= 0).sum()
+print(f"Train confident: {confident_train}/{len(train_x)}, Valid confident: {confident_valid}/{len(valid_x)}")
 
 print("Precomputing spectrograms...")
 N_MELS_VARIANTS = [32, 64, 128]
